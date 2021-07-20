@@ -13,8 +13,10 @@ const LOCAL_BASE: &str = "D:\\Documents\\Computing\\Rust\\file_backup";
 const FNAS_BASE: &str = "//fnas2/FTP/Jack/Documents/Computing/Rust/file_backup";
 fn main() {
 
-    let mut counter = 0;
-    update_files("\\", &mut counter).unwrap();
+    let mut total_counter = 0;
+    let mut live_counter = 0;
+    count_files("\\", &mut total_counter).unwrap();
+    update_files("\\", &mut live_counter, total_counter).unwrap();
 
 }
 
@@ -40,7 +42,7 @@ fn count_files(dir: &str, file_count: &mut u64) -> std::io::Result<()> {
     Ok(())
 }
 
-fn update_files(dir: &str, file_count: &mut u64) -> std::io::Result<()> {
+fn update_files(dir: &str, file_count: &mut u64, total_count: u64) -> std::io::Result<()> {
 
     match fs::read_dir(Path::new(&format!("{}{}", LOCAL_BASE, dir))) {
         Ok(local_files) => {
@@ -56,22 +58,23 @@ fn update_files(dir: &str, file_count: &mut u64) -> std::io::Result<()> {
 
                     if fnas_path.exists() == false {
                         match fs::create_dir(fnas_path) {
-                            Ok(_) => println!("Created new folder: {}", fnas_path.to_str().unwrap()), 
+                            Ok(_) => println!("{}% - Created new folder: {}", *file_count*100/total_count, fnas_path.to_str().unwrap()), 
                             Err(error) => println!("Folder: {}: {}", error, local_path.to_str().unwrap()),
 
                         }
                     }
 
 
-                    update_files(&remove_starting_directory(local_path.to_str().unwrap()), file_count)?
+                    update_files(&remove_starting_directory(local_path.to_str().unwrap()), file_count, total_count)?
                 }
                 else{
                     if fnas_path.exists() == false {
                         match fs::copy(&local_path, &fnas_path) {
-                            Ok(_) => println!("Created file: {}", fnas_path.to_str().unwrap()), 
+                            Ok(_) => println!("{}% - Created file: {}", *file_count*100/total_count, fnas_path.to_str().unwrap()), 
                             Err(error) => println!("File: {}: {}", error, local_path.to_str().unwrap()),
                         }
                     }
+                    *file_count += 1; 
                 }
                 
             }
