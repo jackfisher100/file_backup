@@ -1,33 +1,90 @@
+
 use std::fs;
 use std::path::Path;
+#[allow(unused_imports)]
 use std::io;
+#[allow(unused_imports)]
+use ftp::FtpStream;
+#[allow(unused_imports)]
+use std::time::SystemTime;
 
 
-
+const LOCAL_BASE: &str = "D:\\Documents\\Computing\\Rust\\file_backup";
+const FNAS_BASE: &str = "//fnas2/FTP/Jack/Documents/Computing/Rust/file_backup";
 fn main() {
+
     let mut counter = 0;
-    get_files(Path::new("C:"), &mut counter);
-    println!("{}", counter);
+    update_files("\\", &mut counter).unwrap();
+
 }
 
 
-fn get_files(dir: &Path, file_count: &mut u64) {
+fn count_files(dir: &str, file_count: &mut u64) -> std::io::Result<()> {
+    
+    match fs::read_dir(Path::new(&format!("{}{}", LOCAL_BASE, dir))) {
+        Ok(local_files) => {
 
-    match fs::read_dir(dir) {
-        Ok(files) => {
-            for file in files{
-                let entry = file.unwrap();
-                let path = entry.path();
-                if path.is_dir(){
-                    get_files(&path, file_count)
+            for file in local_files{
+                let local_path = file.unwrap().path();
+                if local_path.is_dir(){
+                    count_files(&remove_starting_directory(local_path.to_str().unwrap()), file_count)?
                 }
                 else{
                     *file_count += 1;
-                    println!("{:?}: {}", file_count, path.to_str().unwrap());
                 }
+                
             }
-        },
-        Err(_) => {println!("Failed ###")},
+        }
+            Err(err) => {println!("Permission denied: {}", err)},  
     };
+    Ok(())
+}
+
+fn update_files(dir: &str, file_count: &mut u64) -> std::io::Result<()> {
+
+    match fs::read_dir(Path::new(&format!("{}{}", LOCAL_BASE, dir))) {
+        Ok(local_files) => {
+
+            for file in local_files{
+                let file = file.unwrap();
+                let local_path = file.path();
+
+                let fnas_dir = &format!("{}{}\\{}", FNAS_BASE, dir, file.file_name().to_str().unwrap());
+                let fnas_path = Path::new(fnas_dir);
+                
+                if local_path.is_dir(){
+
+                    if fnas_path.exists() == false {
+                        match fs::create_dir(fnas_path) {
+                            Ok(_) => println!("Created new folder: {}", fnas_path.to_str().unwrap()), 
+                            Err(error) => println!("Folder: {}: {}", error, local_path.to_str().unwrap()),
+
+                        }
+                    }
+
+
+                    update_files(&remove_starting_directory(local_path.to_str().unwrap()), file_count)?
+                }
+                else{
+                    if fnas_path.exists() == false {
+                        match fs::copy(&local_path, &fnas_path) {
+                            Ok(_) => println!("Created file: {}", fnas_path.to_str().unwrap()), 
+                            Err(error) => println!("File: {}: {}", error, local_path.to_str().unwrap()),
+                        }
+                    }
+                }
+                
+            }
+        }
+            Err(err) => {println!("Permission denied: {}", err)},  
+    };
+    Ok(())
+}
+
+
+fn remove_starting_directory(ending: &str) -> &str {
+    let result = &ending[LOCAL_BASE.len()..];
+
+    result
 
 }
